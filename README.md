@@ -10,10 +10,10 @@ The library has no runtime dependencies.
 
 ## Installation
 
-While the repository is private, add it directly to your `Gemfile`:
+Add the gem to your `Gemfile`:
 
 ```ruby
-gem "json-mask", github: "wistia/json-mask-ruby"
+gem "json-mask"
 ```
 
 Then run `bundle install`.
