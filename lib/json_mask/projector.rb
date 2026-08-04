@@ -18,6 +18,11 @@ module JsonMask
         project_hash(value, selection_tree)
       when Array
         project_array(value, selection_tree)
+      when nil
+        # JSON null is a value, not a shape mismatch: a nested selection into
+        # null keeps the null (matching the reference implementation), so a
+        # nullable field stays distinguishable from an unselected one.
+        nil
       else
         MISSING
       end

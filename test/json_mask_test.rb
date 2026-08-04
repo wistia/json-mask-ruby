@@ -158,6 +158,32 @@ class JsonMaskTest < Minitest::Test
     assert_equal expected, JsonMask.call(input, 'absent,missingChild/id,items/id')
   end
 
+  def test_null_values_pass_through_nested_selections
+    input = { 'id' => 1, 'folder' => nil }
+
+    assert_equal input, JsonMask.call(input, 'id,folder(name)')
+    assert_equal({ 'folder' => nil }, JsonMask.call(input, 'folder/name'))
+  end
+
+  def test_null_array_items_are_preserved_under_nested_selections
+    input = { 'items' => [{ 'id' => 1, 'extra' => 2 }, nil] }
+
+    assert_equal({ 'items' => [{ 'id' => 1 }, nil] }, JsonMask.call(input, 'items(id)'))
+  end
+
+  def test_a_nil_root_returns_nil
+    assert_nil JsonMask.call(nil, 'id')
+  end
+
+  def test_the_gem_loads_by_its_dashed_name
+    lib = File.expand_path('../lib', __dir__)
+    program = 'require "json-mask"; print JsonMask::VERSION'
+    output, status = Open3.capture2(RbConfig.ruby, '-I', lib, '-e', program)
+
+    assert_predicate status, :success?
+    assert_equal JsonMask::VERSION, output
+  end
+
   def test_root_arrays_are_supported
     input = [{ 'id' => 1, 'name' => 'One' }, { 'id' => 2, 'name' => 'Two' }]
 

@@ -6,6 +6,12 @@ AllCops:
 Layout/LineLength:
   Max: 100
 
+# The entry file matching the dash-separated gem name must keep that name
+# for Bundler's default require to work.
+Naming/FileName:
+  Exclude:
+    - "lib/json-mask.rb"
+
 Metrics/MethodLength:
   Max: 15
   Exclude:

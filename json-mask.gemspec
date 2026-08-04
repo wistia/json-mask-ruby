@@ -13,7 +13,7 @@ Gem::Specification.new do |spec|
     A dependency-free implementation of the Google partial-response and JSON Mask fields
     language for filtering Hash and Array response data.
   DESCRIPTION
-  spec.homepage = 'https://github.com/rsheldiii/json-mask-ruby'
+  spec.homepage = 'https://github.com/wistia/json-mask-ruby'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 3.1'
 

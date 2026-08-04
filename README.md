@@ -1,5 +1,7 @@
 # JSON Mask for Ruby
 
+[![CI](https://github.com/wistia/json-mask-ruby/actions/workflows/ci.yml/badge.svg)](https://github.com/wistia/json-mask-ruby/actions/workflows/ci.yml)
+
 `json-mask` selects fields from JSON-compatible Ruby objects while preserving the shape of the
 response. It implements the field selector language used by Google's partial responses and the
 [JSON Mask](https://github.com/nemtsov/json-mask) project.
@@ -11,7 +13,7 @@ The library has no runtime dependencies.
 While the repository is private, add it directly to your `Gemfile`:
 
 ```ruby
-gem "json-mask", github: "rsheldiii/json-mask-ruby"
+gem "json-mask", github: "wistia/json-mask-ruby"
 ```
 
 Then run `bundle install`.
@@ -123,8 +125,10 @@ and JSON Mask's documented grammar. This library intentionally validates malform
 instead of attempting to recover from them.
 
 The projector accepts JSON-compatible `Hash` and `Array` values. If a selected field contains a
-scalar where the selector asks for nested fields, that field is omitted. A non-container root value
-with a non-empty selector produces `nil`.
+scalar where the selector asks for nested fields, that field is omitted — except `nil`, which
+passes through unchanged (matching the reference implementation), so a nullable field stays
+distinguishable from an unselected one. A non-container root value with a non-empty selector
+produces `nil`.
 
 ## Development
 
