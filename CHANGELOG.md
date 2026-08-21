@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0 - Unreleased
+
+- Add `JsonMask.except` and `JsonMask.compile_except`, which apply a selector as an exclusion:
+  matched fields are removed and every other field passes through unchanged.
+
 ## 0.1.0 - Unreleased
 
 - Implement Google partial-response and JSON Mask field selectors.

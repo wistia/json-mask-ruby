@@ -58,6 +58,36 @@ This makes an optional HTTP `fields` parameter straightforward:
 render json: JsonMask.call(payload, params[:fields])
 ```
 
+## Exclusion masks
+
+`JsonMask.except` applies a selector as an exclusion: matched fields are removed and every other
+field passes through unchanged.
+
+```ruby
+JsonMask.except(response, "permissions/email")
+# => {
+#      "id" => "abc123",
+#      "name" => "Product demo",
+#      "permissions" => [{"id" => "owner", "role" => "owner"}]
+#    }
+```
+
+`JsonMask.compile_except` compiles a reusable exclusion mask, mirroring `JsonMask.compile`:
+
+```ruby
+mask = JsonMask.compile_except("email,phone_number")
+
+mask.call(first_response)
+mask.call(second_response)
+```
+
+Exclusion masks use the same selector grammar, parser limits, and traversal rules as selection.
+Sub-selections and slash paths remove nested fields while keeping their parents
+(`permissions(email)` keeps `permissions` but removes each entry's `email`), arrays are traversed
+transparently, and a wildcard removes every field at its level. Selectors naming missing fields
+are a no-op, scalars under a nested exclusion are kept as-is, and a `nil` or blank selector
+removes nothing.
+
 ## Selector syntax
 
 The syntax is loosely based on XPath:

@@ -282,4 +282,121 @@ class JsonMaskTest < Minitest::Test
 
     assert_equal 'max_depth must be a positive Integer', error.message
   end
+
+  def test_except_removes_top_level_fields
+    input = { 'id' => 1, 'name' => 'Demo', 'email' => 'owner@example.com' }
+
+    assert_equal({ 'id' => 1, 'name' => 'Demo' }, JsonMask.except(input, 'email'))
+  end
+
+  def test_except_removes_nested_fields_with_slashes
+    input = {
+      'name' => 'Demo',
+      'capabilities' => { 'canDownload' => true, 'canEdit' => false }
+    }
+
+    expected = { 'name' => 'Demo', 'capabilities' => { 'canDownload' => true } }
+
+    assert_equal expected, JsonMask.except(input, 'capabilities/canEdit')
+  end
+
+  def test_except_subselections_traverse_objects_and_arrays
+    input = {
+      'files' => [
+        {
+          'id' => 'one',
+          'permissions' => [{ 'role' => 'owner', 'email' => 'owner@example.com' }]
+        },
+        { 'id' => 'two', 'permissions' => [] }
+      ],
+      'nextPageToken' => 'next'
+    }
+
+    expected = {
+      'files' => [
+        { 'id' => 'one', 'permissions' => [{ 'role' => 'owner' }] },
+        { 'id' => 'two', 'permissions' => [] }
+      ],
+      'nextPageToken' => 'next'
+    }
+
+    assert_equal expected, JsonMask.except(input, 'files(permissions(email))')
+  end
+
+  def test_except_removes_whole_subtrees
+    input = { 'id' => 1, 'permissions' => [{ 'role' => 'owner' }] }
+
+    assert_equal({ 'id' => 1 }, JsonMask.except(input, 'permissions'))
+  end
+
+  def test_except_applies_to_each_item_of_a_top_level_array
+    input = [
+      { 'id' => 1, 'email' => 'a@example.com' },
+      { 'id' => 2, 'email' => 'b@example.com' }
+    ]
+
+    assert_equal [{ 'id' => 1 }, { 'id' => 2 }], JsonMask.except(input, 'email')
+  end
+
+  def test_except_keeps_scalars_and_nils_under_nested_exclusions
+    input = { 'a' => 1, 'b' => nil, 'c' => { 'x' => 1, 'y' => 2 } }
+
+    expected = { 'a' => 1, 'b' => nil, 'c' => { 'x' => 1 } }
+
+    assert_equal expected, JsonMask.except(input, 'a/x,b/x,c/y')
+  end
+
+  def test_except_missing_fields_are_a_noop
+    input = { 'id' => 1 }
+
+    assert_equal({ 'id' => 1 }, JsonMask.except(input, 'email,contact/email'))
+  end
+
+  def test_except_wildcard_removes_every_field
+    input = { 'id' => 1, 'nested' => { 'x' => 1 } }
+
+    assert_empty JsonMask.except(input, '*')
+  end
+
+  def test_except_nested_wildcard_empties_the_field
+    input = { 'id' => 1, 'nested' => { 'x' => 1, 'y' => 2 } }
+
+    assert_equal({ 'id' => 1, 'nested' => {} }, JsonMask.except(input, 'nested/*'))
+  end
+
+  def test_except_with_blank_selectors_returns_the_value_unchanged
+    input = { 'id' => 1 }
+
+    assert_same input, JsonMask.except(input, nil)
+    assert_same input, JsonMask.except(input, '')
+    assert_same input, JsonMask.except(input, " \n\t")
+  end
+
+  def test_except_preserves_symbol_keys_and_does_not_mutate_the_input
+    input = { id: 1, email: 'owner@example.com' }
+
+    assert_equal({ id: 1 }, JsonMask.except(input, 'email'))
+    assert_equal({ id: 1, email: 'owner@example.com' }, input)
+  end
+
+  def test_compiled_exclusion_masks_can_be_reused
+    mask = JsonMask.compile_except('email')
+
+    assert_predicate mask, :frozen?
+    assert_equal 'email', mask.fields
+    assert_equal({ 'id' => 1 }, mask.call({ 'id' => 1, 'email' => 'a@example.com' }))
+    assert_equal({ 'id' => 2 }, mask.filter({ 'id' => 2, 'email' => 'b@example.com' }))
+  end
+
+  def test_compile_except_enforces_limits
+    assert_raises(JsonMask::LimitError) { JsonMask.compile_except('abcdef', max_length: 5) }
+    assert_raises(JsonMask::LimitError) { JsonMask.compile_except('a/b/c', max_depth: 2) }
+    assert_raises(JsonMask::LimitError) { JsonMask.compile_except('a,b,c', max_selectors: 2) }
+  end
+
+  def test_compile_except_rejects_malformed_selectors
+    error = assert_raises(JsonMask::ParseError) { JsonMask.compile_except('files(id') }
+
+    assert_equal 'files(id', error.expression
+  end
 end

@@ -5,9 +5,10 @@ module JsonMask
   class CompiledMask
     attr_reader :fields
 
-    def initialize(fields, selection_tree)
+    def initialize(fields, selection_tree, projector: Projector)
       @fields = fields&.dup&.freeze
       @selection_tree = selection_tree
+      @projector = projector
       freeze
     end
 
@@ -18,7 +19,7 @@ module JsonMask
     def call(value)
       return value unless @selection_tree
 
-      Projector.call(value, @selection_tree)
+      @projector.call(value, @selection_tree)
     end
 
     alias filter call
