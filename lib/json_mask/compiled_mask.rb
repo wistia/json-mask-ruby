@@ -3,7 +3,15 @@
 module JsonMask
   # An immutable, reusable field selector.
   class CompiledMask
+    # @return [String, nil] the selector expression as given
     attr_reader :fields
+
+    # The compiled selections, for callers that inspect a selector rather than
+    # apply it, such as checking field names against a response schema.
+    #
+    # @return [SelectionTree, nil] the root tree, or nil when the selector was
+    #   blank and values pass through unchanged
+    attr_reader :selection_tree
 
     def initialize(fields, selection_tree)
       @fields = fields&.dup&.freeze

@@ -116,7 +116,68 @@ Exceeding a limit raises `JsonMask::LimitError`, a subclass of `JsonMask::ParseE
 
 Validation is syntactic. Because the library has no response schema, a well-formed selector that
 names a field absent from the input simply omits that field; it cannot produce Google's
-schema-aware "Invalid field selection" error on its own.
+schema-aware "Invalid field selection" error on its own. An application that has a schema can
+produce one by inspecting the compiled selector.
+
+## Inspecting a compiled selector
+
+`JsonMask::CompiledMask#selection_tree` exposes the parsed selector as an immutable tree, for
+callers that need to examine a selector rather than apply it:
+
+```ruby
+tree = JsonMask.compile("id,permissions(role),*/kind").selection_tree
+
+tree.named.keys                                        # => ["id", "permissions"]
+tree.named["id"].leaf?                                 # => true
+tree.named["permissions"].children.named.keys          # => ["role"]
+tree.wildcard.children.named.keys                      # => ["kind"]
+tree.selection_for("permissions").children.named.keys  # => ["role", "kind"]
+tree.selection_for("other").children.named.keys        # => ["kind"]
+```
+
+- A `JsonMask::SelectionTree` holds `named`, a frozen `Hash` from each explicitly written field
+  name (unescaped) to a `JsonMask::Selection`, and `wildcard`, the `*` selection at that level or
+  `nil`.
+- A `JsonMask::Selection` is either a leaf (`leaf?` is true and the whole value is selected) or
+  has `children`, a nested `JsonMask::SelectionTree`.
+- `selection_for(key)` returns what the projector applies to a key (`String` or `Symbol`): the
+  named selection merged with the wildcard, the wildcard alone for a key that is not named, or
+  `nil` when the key is not selected.
+
+Blank selectors compile to a mask that passes values through, and its `selection_tree` is `nil`.
+
+This is enough to add schema-aware validation. For example, to list the selected paths that a
+JSON-Schema-style hash does not declare:
+
+```ruby
+def undeclared_paths(tree, schema, path = [])
+  schema = schema["items"] if schema["type"] == "array"
+  properties = schema.fetch("properties", {})
+
+  tree.named.flat_map do |name, selection|
+    property = properties[name]
+    next [(path + [name]).join("/")] unless property
+    next [] if selection.leaf?
+
+    undeclared_paths(selection.children, property, path + [name])
+  end
+end
+
+schema = {
+  "type" => "object",
+  "properties" => {
+    "id" => {"type" => "string"},
+    "permissions" => {
+      "type" => "array",
+      "items" => {"type" => "object", "properties" => {"role" => {"type" => "string"}}}
+    }
+  }
+}
+
+tree = JsonMask.compile("id,permissions(role,email),owner/name").selection_tree
+undeclared_paths(tree, schema)
+# => ["permissions/email", "owner"]
+```
 
 ## Compatibility
 

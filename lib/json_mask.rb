@@ -43,5 +43,5 @@ module JsonMask
     end
   end
 
-  private_constant :Parser, :Projector, :Selection, :SelectionTree
+  private_constant :Parser, :Projector
 end
