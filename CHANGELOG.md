@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 - Unreleased
+## 0.2.0 - 2026-09-04
 
 - Expose compiled selectors for inspection. `CompiledMask#selection_tree` returns the root
   `JsonMask::SelectionTree`; its `named`, `wildcard`, and `selection_for` readers and
