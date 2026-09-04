@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
 module JsonMask
-  # One entry of a SelectionTree: either a leaf, which selects a field's whole
-  # value, or a nested selection into that value's members. Selections are
-  # immutable and built only by the parser.
   class Selection
-    # The nested SelectionTree, or nil for a leaf.
     attr_reader :children
 
     def self.leaf
@@ -21,6 +17,7 @@ module JsonMask
       children.nil?
     end
 
+    # A leaf already selects the whole value, so it absorbs any nested selection.
     def merge(other)
       return self.class.leaf if leaf? || other.leaf?
 
@@ -28,16 +25,8 @@ module JsonMask
     end
   end
 
-  # One level of a compiled selector: the fields named explicitly plus an
-  # optional wildcard. Repeated names are merged by union, and a leaf wins over
-  # a nested selection of the same name. Trees are immutable and built only by
-  # the parser; read a selector's root tree from CompiledMask#selection_tree.
   class SelectionTree
-    # The explicitly named selections, keyed by unescaped field name.
-    attr_reader :named
-
-    # The `*` selection at this level, if any.
-    attr_reader :wildcard
+    attr_reader :named, :wildcard
 
     def self.empty
       @empty ||= new
@@ -67,10 +56,8 @@ module JsonMask
       )
     end
 
-    # The selection the projector applies to a field: the named selection
-    # merged with the wildcard's nested selections, or the wildcard alone for a
-    # field that is not named. Accepts String or Symbol keys and returns nil
-    # when the field is not selected.
+    # Unlike `named`, folds the wildcard's nested selections into each named
+    # selection; unnamed fields get the wildcard itself.
     def selection_for(key)
       @effective_named.fetch(key.to_s, wildcard)
     end

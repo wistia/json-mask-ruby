@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 module JsonMask
-  # Raised when a field selector does not conform to the supported grammar.
   class ParseError < ArgumentError
     attr_reader :expression, :offset, :reason
 
@@ -14,7 +13,7 @@ module JsonMask
     end
   end
 
-  # Raised when a field selector exceeds a configured parser limit.
+  # A ParseError subclass so one rescue covers malformed and oversized selectors.
   class LimitError < ParseError
   end
 end
