@@ -282,4 +282,115 @@ class JsonMaskTest < Minitest::Test
 
     assert_equal 'max_depth must be a positive Integer', error.message
   end
+
+  def test_compiled_masks_expose_their_selection_tree
+    tree = JsonMask.compile('id,permissions(role),items/*/id').selection_tree
+
+    assert_kind_of JsonMask::SelectionTree, tree
+    assert_equal %w[id permissions items], tree.named.keys
+    assert_nil tree.wildcard
+    assert_predicate tree.named['id'], :leaf?
+    assert_nil tree.named['id'].children
+  end
+
+  def test_selection_trees_nest_parenthesized_selections
+    permissions = JsonMask.compile('permissions(role)').selection_tree.named['permissions']
+
+    refute_predicate permissions, :leaf?
+    assert_equal ['role'], permissions.children.named.keys
+    assert_predicate permissions.children.named['role'], :leaf?
+  end
+
+  def test_selection_trees_nest_wildcard_paths
+    items = JsonMask.compile('items/*/id').selection_tree.named['items'].children
+
+    assert_empty items.named
+    assert_equal ['id'], items.wildcard.children.named.keys
+  end
+
+  def test_blank_selectors_compile_without_a_selection_tree
+    assert_nil JsonMask.compile(nil).selection_tree
+    assert_nil JsonMask.compile('').selection_tree
+    assert_nil JsonMask.compile(" \n\t").selection_tree
+  end
+
+  def test_selection_trees_are_frozen
+    tree = JsonMask.compile('id,nested/value').selection_tree
+
+    assert_predicate tree, :frozen?
+    assert_predicate tree.named, :frozen?
+    assert_predicate tree.named['nested'], :frozen?
+    assert_raises(FrozenError) { tree.named['other'] = tree.named['id'] }
+  end
+
+  def test_selection_trees_keep_wildcards_separate_from_named_selections
+    tree = JsonMask.compile('*(id),featured,detailed(name)').selection_tree
+
+    assert_equal %w[featured detailed], tree.named.keys
+    assert_equal ['id'], tree.wildcard.children.named.keys
+  end
+
+  def test_selection_for_merges_the_wildcard_into_named_selections
+    tree = JsonMask.compile('*(id),featured,detailed(name)').selection_tree
+
+    assert_predicate tree.selection_for('featured'), :leaf?
+    assert_equal %w[name id], tree.selection_for('detailed').children.named.keys
+    assert_same tree.wildcard, tree.selection_for('other')
+  end
+
+  def test_selection_for_accepts_string_and_symbol_keys_and_is_nil_for_unselected_fields
+    tree = JsonMask.compile('id').selection_tree
+
+    assert_same tree.named['id'], tree.selection_for('id')
+    assert_same tree.named['id'], tree.selection_for(:id)
+    assert_nil tree.selection_for('other')
+  end
+
+  def test_repeated_selections_are_merged_in_the_tree
+    tree = JsonMask.compile('item/id,item/name').selection_tree
+
+    assert_equal %w[id name], tree.named['item'].children.named.keys
+
+    tree = JsonMask.compile('item/id,item').selection_tree
+
+    assert_predicate tree.named['item'], :leaf?
+  end
+
+  def test_selection_tree_names_are_unescaped
+    tree = JsonMask.compile('a\/b,\*,a\(b\)').selection_tree
+
+    assert_equal ['a/b', '*', 'a(b)'], tree.named.keys
+    assert_nil tree.wildcard
+  end
+
+  def test_selection_trees_support_schema_aware_validation
+    schema = {
+      'type' => 'object',
+      'properties' => {
+        'id' => { 'type' => 'string' },
+        'permissions' => {
+          'type' => 'array',
+          'items' => { 'type' => 'object', 'properties' => { 'role' => { 'type' => 'string' } } }
+        }
+      }
+    }
+    tree = JsonMask.compile('id,permissions(role,email),owner/name').selection_tree
+
+    assert_equal ['permissions/email', 'owner'], undeclared_paths(tree, schema)
+  end
+
+  private
+
+  def undeclared_paths(tree, schema, path = [])
+    schema = schema['items'] if schema['type'] == 'array'
+    properties = schema.fetch('properties', {})
+
+    tree.named.flat_map do |name, selection|
+      property = properties[name]
+      next [(path + [name]).join('/')] unless property
+      next [] if selection.leaf?
+
+      undeclared_paths(selection.children, property, path + [name])
+    end
+  end
 end

@@ -21,3 +21,7 @@ Metrics/ClassLength:
   Max: 150
   Exclude:
     - "test/**/*"
+
+# Comments are reserved for surprising behavior, so class summaries are not required.
+Style/Documentation:
+  Enabled: false

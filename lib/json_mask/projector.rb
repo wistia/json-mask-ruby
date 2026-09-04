@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 module JsonMask
-  # Applies a compiled selection tree to Hash and Array values.
   module Projector
     MISSING = Object.new.freeze
 
@@ -19,9 +18,8 @@ module JsonMask
       when Array
         project_array(value, selection_tree)
       when nil
-        # JSON null is a value, not a shape mismatch: a nested selection into
-        # null keeps the null (matching the reference implementation), so a
-        # nullable field stays distinguishable from an unselected one.
+        # Keep nulls, as the reference implementation does, so a nullable
+        # field stays distinguishable from an unselected one.
         nil
       else
         MISSING

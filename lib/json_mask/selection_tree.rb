@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 module JsonMask
-  # Represents either a complete field or a field with nested selections.
   class Selection
     attr_reader :children
 
@@ -18,6 +17,7 @@ module JsonMask
       children.nil?
     end
 
+    # A leaf already selects the whole value, so it absorbs any nested selection.
     def merge(other)
       return self.class.leaf if leaf? || other.leaf?
 
@@ -25,7 +25,6 @@ module JsonMask
     end
   end
 
-  # Stores named and wildcard selections, merging repeated selections by union.
   class SelectionTree
     attr_reader :named, :wildcard
 
@@ -57,6 +56,8 @@ module JsonMask
       )
     end
 
+    # Unlike `named`, folds the wildcard's nested selections into each named
+    # selection; unnamed fields get the wildcard itself.
     def selection_for(key)
       @effective_named.fetch(key.to_s, wildcard)
     end

@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
 module JsonMask
-  # An immutable, reusable field selector.
   class CompiledMask
     attr_reader :fields
+
+    # nil for a blank selector, which passes values through unchanged.
+    attr_reader :selection_tree
 
     def initialize(fields, selection_tree)
       @fields = fields&.dup&.freeze
@@ -11,10 +13,6 @@ module JsonMask
       freeze
     end
 
-    # Filters a JSON-compatible value using this selector.
-    #
-    # @param value [Hash, Array] response data to filter
-    # @return [Hash, Array, nil] a structural subset of value
     def call(value)
       return value unless @selection_tree
 

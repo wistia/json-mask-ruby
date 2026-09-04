@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 module JsonMask
-  # Compiles a field selector string into an immutable selection tree.
   class Parser
     DEFAULT_MAX_LENGTH = 16_384
     DEFAULT_MAX_DEPTH = 64
