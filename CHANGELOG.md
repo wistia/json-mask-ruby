@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 - 2026-09-09
+
+- Add `CompiledMask#each_path` to enumerate selected paths with decoded field names and a distinct
+  `JsonMask::WILDCARD` token. Whole-field selections absorb descendants, and terminal wildcards
+  absorb sibling selections.
+- Add `JsonMask.format_path` to turn a path or prefix into an escaped slash-separated selector.
+
 ## 0.2.0 - 2026-09-04
 
 - Expose compiled selectors for inspection. `CompiledMask#selection_tree` returns the root

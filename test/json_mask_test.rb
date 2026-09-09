@@ -218,6 +218,99 @@ class JsonMaskTest < Minitest::Test
     assert_equal({ 'id' => 1 }, JsonMask.mask(input, 'id'))
   end
 
+  def test_each_path_enumerates_named_and_nested_selections
+    paths = JsonMask.compile('id,assets(url,width),assets/url').each_path
+
+    assert_kind_of Enumerator, paths
+    assert_equal [['id'], %w[assets url], %w[assets width]], paths.to_a
+  end
+
+  def test_each_path_yields_paths_and_returns_the_mask
+    mask = JsonMask.compile('id,assets/url')
+    paths = []
+
+    assert_same(mask, mask.each_path { |path| paths << path })
+    assert_equal [['id'], %w[assets url]], paths
+  end
+
+  def test_each_path_keeps_nested_wildcards_separate_from_named_paths
+    mask = JsonMask.compile('*(id),featured,detailed(name),items/*/url')
+
+    assert_equal(
+      [['featured'], %w[detailed name], ['items', JsonMask::WILDCARD, 'url'],
+       [JsonMask::WILDCARD, 'id']],
+      mask.each_path.to_a
+    )
+  end
+
+  def test_each_path_omits_descendants_of_whole_field_selections
+    assert_equal [['item']], JsonMask.compile('item/id,item,item/name').each_path.to_a
+  end
+
+  def test_each_path_omits_siblings_of_terminal_wildcards
+    assert_equal [[JsonMask::WILDCARD]], JsonMask.compile('*,typo/deep').each_path.to_a
+    assert_equal(
+      [['item', JsonMask::WILDCARD], ['id']],
+      JsonMask.compile('item(name,*,other/deep),id').each_path.to_a
+    )
+  end
+
+  def test_each_path_preserves_escaped_names_and_distinguishes_literal_stars
+    paths = JsonMask.compile('a\/b,\*,*/id').each_path.to_a
+
+    assert_equal [['a/b'], ['*'], [JsonMask::WILDCARD, 'id']], paths
+    refute_equal '*', JsonMask::WILDCARD
+  end
+
+  def test_each_path_yields_nothing_for_blank_selectors
+    [nil, '', " \n\t"].each do |fields|
+      assert_empty JsonMask.compile(fields).each_path.to_a
+    end
+  end
+
+  def test_mutating_yielded_path_arrays_does_not_change_the_mask
+    mask = JsonMask.compile('item(id,name)')
+    mask.each_path { |path| path.replace(['changed']) }
+
+    assert_equal [%w[item id], %w[item name]], mask.each_path.to_a
+    input = { 'item' => { 'id' => 1, 'name' => 'Demo', 'other' => true } }
+    assert_equal({ 'item' => { 'id' => 1, 'name' => 'Demo' } }, mask.call(input))
+  end
+
+  def test_format_path_escapes_literal_names_and_preserves_wildcards
+    assert_equal 'a\/b/name', JsonMask.format_path(['a/b', 'name'])
+    assert_equal '\*/id', JsonMask.format_path(['*', 'id'])
+    assert_equal '*/id', JsonMask.format_path([JsonMask::WILDCARD, 'id'])
+    assert_equal '', JsonMask.format_path([])
+  end
+
+  def test_format_path_round_trips_structural_characters_whitespace_and_unicode
+    path = ['a/b', 'a,b', 'a(b)', '*', '\\', ' spaced ', "\tline\n", '雪', JsonMask::WILDCARD]
+
+    assert_equal [path], JsonMask.compile(JsonMask.format_path(path)).each_path.to_a
+  end
+
+  def test_format_path_round_trips_every_ascii_character_as_a_field_name
+    # NUL and whitespace-only names need escaping to survive the parser's blank check.
+    (0..127).each do |codepoint|
+      path = [codepoint.chr]
+
+      assert_equal [path], JsonMask.compile(JsonMask.format_path(path)).each_path.to_a
+    end
+  end
+
+  def test_formatted_paths_reproduce_the_original_projection
+    mask = JsonMask.compile('id,items(url,name),\*,*/id')
+    fields = mask.each_path.map { |path| JsonMask.format_path(path) }.join(',')
+    input = {
+      'id' => 1, '*' => 'literal',
+      'items' => [{ 'id' => 2, 'url' => '/demo', 'name' => 'Demo', 'extra' => true }],
+      'owner' => { 'id' => 3, 'name' => 'Owner' }
+    }
+
+    assert_equal mask.call(input), JsonMask.call(input, fields)
+  end
+
   def test_invalid_field_types_are_rejected
     error = assert_raises(TypeError) { JsonMask.compile(['id']) }
 

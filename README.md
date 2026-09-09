@@ -121,6 +121,48 @@ produce one by inspecting the compiled selector.
 
 ## Inspecting a compiled selector
 
+### Selected paths
+
+`CompiledMask#each_path` yields a fresh array of segments for each selected path. Without a block,
+it returns an `Enumerator`:
+
+```ruby
+mask = JsonMask.compile("id,assets(url,width),*/name")
+
+mask.each_path.to_a
+# => [["id"], ["assets", "url"], ["assets", "width"], [JsonMask::WILDCARD, "name"]]
+
+mask.each_path { |path| puts JsonMask.format_path(path) }
+# id
+# assets/url
+# assets/width
+# */name
+```
+
+Named segments are unescaped strings. `JsonMask::WILDCARD` (the symbol `:*`) represents a wildcard;
+the string `"*"` represents a literal field named `*`.
+
+Paths follow the compiled tree: named fields are visited depth first, then the wildcard at each
+level. Repeated named selections are merged. Selecting a whole field absorbs its descendants,
+and a terminal wildcard absorbs its siblings: `id,id/extra` yields only `["id"]`, while `*,typo`
+yields only `[JsonMask::WILDCARD]`. Nested wildcard paths stay separate from named paths.
+Blank selectors yield no paths. With a block, `each_path` returns the compiled mask.
+
+`JsonMask.format_path` converts a yielded path, or a prefix of one, into an escaped slash-separated
+selector. It escapes structural characters, whitespace, and NUL so literal names survive parsing:
+
+```ruby
+JsonMask.format_path(["a/b", "name"])            # => "a\\/b/name"
+JsonMask.format_path(["*", "id"])                # => "\\*/id"
+JsonMask.format_path([JsonMask::WILDCARD, "id"])  # => "*/id"
+JsonMask.format_path([])                        # => ""
+```
+
+This lets an application inspect or validate paths without traversing the selection tree or
+handling selector escaping itself.
+
+### Selection tree
+
 `JsonMask::CompiledMask#selection_tree` exposes the parsed selector as an immutable tree, for
 callers that need to examine a selector rather than apply it:
 
